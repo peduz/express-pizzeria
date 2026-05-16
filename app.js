@@ -2,6 +2,8 @@ const express = require('express')
 
 const app = express()
 
+// registro il body-parser per "application/json"
+app.use(express.json());
 const port = 3000;
 
 const pizzasRouter = require('./routers/pizzas')
