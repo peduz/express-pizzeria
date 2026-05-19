@@ -30,6 +30,13 @@ const menu = [
         image: 'imgs/pizze/4_formaggi.jpeg',
         ingredients: ['pomodoro', 'mozzarella', 'gorgonzola', 'parmigiano', 'ricotta']
     },
+    {
+        id: 100,
+        name: 'Pizza premium',
+        image: 'imgs/pizze/4_formaggi.jpeg',
+        ingredients: ['pomodoro', 'mozzarella', 'caviale']
+    },
+
 
 ]
 

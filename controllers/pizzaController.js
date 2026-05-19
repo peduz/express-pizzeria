@@ -2,13 +2,31 @@ const menu = require('../data/menu');
 
 
 function index(req, res) {
-    let filteredMenu = menu;
+
+    const status = req.query.status;
     const ingredient = req.query.ingredient;
-    if (ingredient) {
-        filteredMenu = menu.filter(pizza => {
-            return pizza.ingredients.includes(ingredient);
+
+    if (status == "premium") {
+        let filteredMenu = menu;
+        if (ingredient) {
+            filteredMenu = menu.filter(pizza => {
+                return pizza.ingredients.includes(ingredient);
+            })
+        }
+        res.json(filteredMenu);
+    } else {
+        let pizzas = menu.filter(pizza => {
+            return pizza.id !== 100;
         })
+
+        if (ingredient) {
+            pizzas = pizzas.filter(pizza => {
+                return pizza.ingredients.includes(ingredient);
+            })
+        }
+        res.json(pizzas);
     }
+
     /**
      * Spiegazione della differenza tra 
      * 1) copia del solo contenitore  -> filter O map
@@ -34,7 +52,6 @@ function index(req, res) {
         }).map(pizza => ({ ...pizza, name: pizza.name + "_addio" }))
     
      */
-    res.json(filteredMenu);
 }
 
 function show(req, res) {
