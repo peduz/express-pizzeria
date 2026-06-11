@@ -1,11 +1,28 @@
 const menu = require('../data/menu');
 
+const connection = require('../data/db')
 
 function index(req, res) {
 
     const status = req.query.status;
     const ingredient = req.query.ingredient;
 
+    const sql = 'SELECT * FROM pizzas';
+
+    connection.query(sql, (err, results) => {
+
+        if (err) {
+            return res.status(500).json({ error: 'Database query failed' });
+        }
+
+        console.log(results)
+
+        res.json(results);
+    });
+
+    /**
+     * 
+     * Commento per non cancellare
     if (status == "premium") {
         let filteredMenu = menu;
         if (ingredient) {
@@ -27,7 +44,6 @@ function index(req, res) {
         res.json(pizzas);
     }
 
-    /**
      * Spiegazione della differenza tra 
      * 1) copia del solo contenitore  -> filter O map
      * 2) copia ANCHE del contenuto   -> filter + map con spread operator
@@ -57,40 +73,86 @@ function index(req, res) {
 function show(req, res) {
     const { id } = req.params;
 
-    const filter = menu.find(pizza => {
-        return pizza.id == parseInt(id)
-    })
+    const sql = 'SELECT * FROM pizzas WHERE id = ?';
 
-    if (!filter) {
-        res.status(404)
-        res.json({
-            error: "Not found",
-            message: "Pizza non trovata"
+
+    const ingredientSQL = `
+            SELECT I.* 
+            FROM ingredients as I
+            JOIN ingredient_pizza as IP on I.id = IP.ingredient_id
+            WHERE IP.pizza_id = ?
+            `
+
+    connection.query(sql, [id], (err, results) => {
+
+        if (err) {
+            return res.status(500).json({ error: 'Database query failed' });
+        }
+
+        if (!results) {
+            res.status(404)
+            res.json({
+                error: "Not found",
+                message: "Pizza non trovata"
+            })
+        }
+
+        connection.query(ingredientSQL, [id], (err, ingredientResults) => {
+            if (err) {
+                return res.status(500).json({ error: 'Database query failed' });
+            }
+
+            const pizzaWithIngredients = {
+                ...results[0],
+                ingredients: ingredientResults,
+            }
+            res.json(pizzaWithIngredients);
         })
-    }
 
-    res.json(filter)
+    });
 
 }
 
 function store(req, res) {
-    console.log("Body ricevuto: ", req.body)
-    // Creiamo un nuovo id incrementando l'ultimo id presente
-    const newId = menu[menu.length - 1].id + 1;
+    //recuperiamo i dati dal corpo della richiesta
+    const { name, image, ingredients } = req.body;
+    // prepariamo la query
+    const sql = 'INSERT INTO pizzas (name, image) VALUES (?, ?)'
 
-    // Creiamo un nuovo oggetto pizza
-    const newPizza = {
-        id: newId,
-        name: req.body.name,
-        image: req.body.image,
-        ingredients: req.body.ingredients
-    }
+    const ingredientsSql = "INSERT INTO ingredient_pizza (ingredient_id, pizza_id) VALUES (?, ?)"
 
-    menu.push(newPizza)
+    // eseguiamo la query
+    connection.query(
+        sql,
+        [name, image],
+        (err, results) => {
+            if (err) return res.status(500).json({ error: 'Failed to insert pizza' });
+            res.status(201); // status corretto
+            console.log(results)
+            const pizzaId = results.insertId;
+            if (!ingredients || ingredients.length === 0) {
+                res.json({ response: "Inserimento completato" })
+            }
+            let count = 0;
+            let errorOccurred = false;
+            ingredients.forEach(ingredientId => {
 
-    res.status(201)
-    res.json(newPizza)
+                connection.query(ingredientsSql, [ingredientId, pizzaId], (err, results) => {
+                    if (errorOccurred) return;
 
+                    if (err) {
+                        errorOccurred = true;
+                        return res.status(500).json({ error: "Failed to insert ingredients" })
+                    }
+                    count++;
+
+                    if (count === ingredients.length) {
+                        res.status(201).json({ response: "Inserimento Completato" })
+                    }
+                })
+            });
+        }
+    );
 }
 
 function update(req, res) {
@@ -104,7 +166,7 @@ function update(req, res) {
     * 
     * ELSE -> elemento NON esiste
     *   2) ritorniamo un errore con 404
-    */
+    *
 
     const elemento = menu.find(pizza => {
         return pizza.id == parseInt(req.params.id)
@@ -124,6 +186,22 @@ function update(req, res) {
             message: "Nessuna pizza con id " + req.params.id + " trovata"
         })
     }
+    */
+    // recuperiamo l'id dall' URL
+    const { id } = req.params;
+
+    // recuperiamo i dati dal body della richiesta
+    const { name, image } = req.body;
+
+    // Prepariamo la query per aggiornare la pizza
+    connection.query(
+        'UPDATE pizzas SET name = ?, image = ? WHERE id = ?',
+        [name, image, id],
+        (err) => {
+            if (err) return res.status(500).json({ error: 'Failed to update pizza' });
+            res.json({ message: 'Pizza updated successfully' });
+        }
+    );
 }
 
 function modify(req, res) {
@@ -148,25 +226,15 @@ function modify(req, res) {
 }
 
 function destroy(req, res) {
-    const filter = menu.find(pizza => {
-        return pizza.id == parseInt(req.params.id)
-    })
 
-    if (filter) {
-        menu.splice(menu.indexOf(filter), 1)
+    // recuperiamo l'id dall' URL 
+    const { id } = req.params;
 
-        res.status(200)
-        res.json({
-            success: true,
-            message: "Pizza eliminata con successo"
-        })
-    } else {
-        res.status(404)
-        res.json({
-            success: false,
-            message: "Non esiste una pizza con questo id"
-        })
-    }
+    //Eliminiamo la pizza dal menu                       
+    connection.query('DELETE FROM pizzas WHERE id = ?', [id], (err) => {
+        if (err) return res.status(500).json({ error: 'Failed to delete pizza' });
+        res.sendStatus(204)
+    });
 }
 
 // esportiamo tutto
